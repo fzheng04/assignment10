@@ -1,68 +1,183 @@
-# Assignment 9: Raw SQL in pgAdmin with Docker Compose
+# IS601 Module 10 — Secure User Model and CI/CD
 
-A FastAPI calculator app running with PostgreSQL and pgAdmin in Docker Compose. The assignment practices raw SQL: creating tables, inserting, querying, updating and deleting records, and working with a one-to-many relationship.
+This project extends my previous FastAPI calculator application by implementing secure user registration using SQLAlchemy, Pydantic, and PostgreSQL. It also incorporates password hashing, automated unit and integration tests, Docker containerization, and a GitHub Actions CI/CD pipeline.
 
-## What's in this repo
+## Features
 
-| File | Purpose |
-|---|---|
-| `docker-compose.yml` | Runs FastAPI, PostgreSQL and pgAdmin |
-| `assignment9.sql` | All SQL commands from the assignment |
-| `Assignment9_Screenshots.docx` | Screenshots of every step with captions |
-| `.trivyignore` | Known issues in pinned dependencies, skipped by the security scan |
-| `.github/workflows/test.yml` | CI/CD: tests, Trivy scan, Docker Hub deploy |
+- **FastAPI Calculator:** Supports addition, subtraction, multiplication, and division.
+- **SQLAlchemy User Model:** Stores usernames, emails, password hashes, and account creation timestamps in PostgreSQL.
+- **Pydantic Validation:** Validates registration information and prevents sensitive password data from appearing in API responses.
+- **Password Security:** Uses Argon2 to securely hash and verify passwords.
+- **Database Constraints:** Enforces unique usernames and email addresses.
+- **Automated Testing:** Includes unit, integration, and end-to-end tests.
+- **Docker Compose:** Runs FastAPI, PostgreSQL, and pgAdmin in separate containers.
+- **CI/CD:** Uses GitHub Actions for automated testing, Trivy vulnerability scanning, and Docker Hub deployment.
 
-## Run it
+## Technologies
+
+Python, FastAPI, SQLAlchemy, Pydantic, PostgreSQL, Argon2, pytest, Playwright, Docker, Docker Compose, GitHub Actions, Trivy
+
+## Running the Application
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Git
+- Python 3.10+ for local development, with compatible dependencies installed
+
+### Setup
+
+Clone the repository:
 
 ```bash
-docker compose up --build
+git clone https://github.com/fzheng04/assignment10.git
+cd assignment10
 ```
+
+Build and start the containers:
+
+```bash
+docker compose up -d --build
+```
+
+The application will be accessible at:
 
 | Service | URL |
 |---|---|
-| FastAPI app | http://localhost:8000 |
+| FastAPI Calculator | http://localhost:8000 |
+| Swagger API Documentation | http://localhost:8000/docs |
 | pgAdmin | http://localhost:5050 |
 
-Stop it with `Ctrl+C`. Use `docker compose down -v` only if you want to delete the database data.
+The database tables are initialized automatically when the application starts.
 
-## Connect pgAdmin to Postgres
+Stop the containers with:
 
-1. Log in to pgAdmin with `admin@example.com` and `admin`.
-2. Right-click **Servers**, then **Register**, then **Server**.
-3. On the **Connection** tab, enter:
-   - Host: `db`
-   - Port: `5432`
-   - Database: `fastapi_db`
-   - Username: `postgres`
-   - Password: `postgres`
-4. Open the **Query Tool** on `fastapi_db` and run the commands from `assignment9.sql`.
+```bash
+docker compose down
+```
 
-Use `db` as the host, not `localhost`, because pgAdmin runs inside Docker and reaches Postgres by its service name.
+The PostgreSQL volume is preserved when stopping the containers normally.
 
-## Database design
+## User Registration
 
-- `users`: `id`, `username`, `email`, `created_at`
-- `calculations`: `id`, `operation`, `operand_a`, `operand_b`, `result`, `timestamp`, `user_id`
-- One user can have many calculations. `calculations.user_id` is a foreign key to `users.id` with `ON DELETE CASCADE`, so deleting a user also deletes their calculations.
+The application provides a `POST /users` endpoint.
 
-## SQL steps covered
+Example request:
 
-1. Create both tables
-2. Insert two users and three calculations
-3. Select all users, all calculations, and a JOIN of the two
-4. Update the result of calculation 1 to 6
-5. Delete calculation 2
+```json
+{
+  "username": "testuser",
+  "email": "test@example.com",
+  "password": "SecurePassword123!"
+}
+```
 
-Screenshots of each step are in `Assignment9_Screenshots.docx`.
+A successful request returns HTTP `201 Created` with the user's ID, username, email, and creation timestamp.
 
-## Troubleshooting
+Passwords are hashed using Argon2 before being stored in PostgreSQL. The API response does not expose passwords or password hashes.
 
-**Postgres container exits with a "in 18+" data directory error.**
-Newer Postgres images need the volume mounted at `/var/lib/postgresql`, not `/var/lib/postgresql/data`. This repo already uses the correct path. If you see the error on an older copy, change the mount and run `docker compose down -v`.
+Duplicate usernames or emails return HTTP `409 Conflict`. Invalid registration data is rejected through Pydantic validation.
 
-**"relation users already exists" in pgAdmin.**
-The app created the table on startup. Run `DROP TABLE IF EXISTS calculations CASCADE;` and `DROP TABLE IF EXISTS users CASCADE;`, then run the create statements again.
+## Database Model
 
-## CI/CD
+The SQLAlchemy `User` model includes:
 
-GitHub Actions runs the unit, integration and end-to-end tests, scans the Docker image with Trivy, then builds and pushes the image to Docker Hub as `fzheng04/601_module9`. Vulnerabilities in pinned course dependencies are listed in `.trivyignore`.
+| Column | Description |
+|---|---|
+| `id` | Primary key |
+| `username` | Unique, required username |
+| `email` | Unique, required email |
+| `password_hash` | Securely hashed password |
+| `created_at` | Automatically generated timestamp |
+
+## Running Tests Locally
+
+### Unit Tests
+
+Create and activate a Python virtual environment:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+python3 -m pip install -r requirements.txt
+```
+
+Run unit tests:
+
+```bash
+python3 -m pytest tests/unit/ -v
+```
+
+### PostgreSQL Integration Tests
+
+Start the application and database:
+
+```bash
+docker compose up -d --build
+```
+
+Run the integration tests inside the FastAPI container:
+
+```bash
+docker compose exec \
+  -e COVERAGE_FILE=/tmp/module10-coverage \
+  web python3 -m pytest tests/integration/ -v
+```
+
+Run unit and integration tests together:
+
+```bash
+docker compose exec \
+  -e COVERAGE_FILE=/tmp/module10-coverage \
+  web python3 -m pytest tests/unit/ tests/integration/ -v
+```
+
+The tests cover password hashing and verification, Pydantic validation, user registration, database persistence, duplicate usernames and emails, and safe API responses.
+
+The project also retains end-to-end tests from the earlier calculator application.
+
+## CI/CD Pipeline
+
+GitHub Actions automatically runs when changes are pushed to the `main` branch.
+
+The pipeline consists of three jobs:
+
+1. **Test:** Installs dependencies, starts PostgreSQL, initializes database tables, and runs unit, integration, and end-to-end tests.
+2. **Security:** Builds the Docker image and scans it with Trivy for high- and critical-severity vulnerabilities.
+3. **Deploy:** Builds and pushes the Docker image to Docker Hub after successful testing and security scanning.
+
+Docker Hub credentials are managed through GitHub Actions repository secrets.
+
+## Docker Hub
+
+**Docker Hub Repository:** https://hub.docker.com/r/fzheng04/601_module10
+
+Pull the published image:
+
+```bash
+docker pull fzheng04/601_module10:latest
+```
+
+The application image requires a PostgreSQL database connection, configured through the `DATABASE_URL` environment variable.
+
+## Security
+
+- Passwords are never stored in plaintext.
+- Argon2 is used for password hashing.
+- Pydantic validates incoming registration data.
+- SQLAlchemy enforces database constraints.
+- API responses exclude password hashes.
+- GitHub Actions secrets protect Docker Hub credentials.
+- Trivy scans Docker images for known vulnerabilities.
+
+## Project Development
+
+This repository builds upon my Module 9 FastAPI calculator and PostgreSQL implementation. Module 10 introduces ORM-based database management, secure user registration, automated database testing, and additional deployment security.
+
+The Git commit history documents the project's development, including implementation milestones, testing, bug fixes, and CI/CD improvements.
+
+## Author
+
+Feiyang Zheng  
+NJIT — IS601  
+Module 10 Assignment
