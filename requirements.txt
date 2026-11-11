@@ -38,3 +38,7 @@ typing_extensions==4.12.2
 urllib3==2.2.3
 uvicorn==0.32.0
 pwdlib[argon2]>=0.2,<1
+SQLAlchemy>=2.0,<3
+psycopg[binary]>=3.2,<4
+pwdlib[argon2]>=0.2,<1
+email-validator>=2,<3
