@@ -1,0 +1,9 @@
+Docker Compose simplified running PostgreSQL, pgAdmin, and FastAPI together with the single command of docker compose up --build. I appreciated how I did not have to install Postgres on my computer or connect everything manually because it was all done by the Docker Image. All three services were done within one network, so pgAdmin could reach the database just by using the host name db from the docker-compose.yml.
+
+Writing raw SQL manually in pgAdmin helped me each command which will be helpful in the future when I do automate the process. Even if I were to use ORMs, creating the tables, inserting rows, and running the JOIN myself made database concepts foreign keys and the one-to-many relationship clear. I also saw how ON DELETE CASCADE is set up in the table definition.
+
+ 
+
+The trickiest part was a persistent error in the terminal where the container crashed because my volume was mounted at a different path, which the newer image does not accept. I had to edit to the correct path in the yml file for the docker compose to run. 
+
+For future problems involving larger database tasks, I will continue the practice of reading and understanding error messages because they pointed me to the fix multiple times. I now understand how tables connect and how to check results directly, so I can compare what an ORM changes with the real database. ,
