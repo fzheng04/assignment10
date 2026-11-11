@@ -1,53 +1,50 @@
-version: '3.8'
+
+name: assignment10
 
 services:
-  # Service: web
   web:
     build: .
-    container_name: fastapi_calculator
     ports:
       - "8000:8000"
     volumes:
       - .:/app
     environment:
-      PYTHONDONTWRITEBYTECODE: 1
-      PYTHONUNBUFFERED: 1
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/fastapi_db
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/fastapi_db
+    command: >
+      sh -c "python -m app.init_db &&
+             exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-network
 
-  # Service: db (PostgreSQL)
   db:
-    image: postgres
-    container_name: postgres_db
+    image: postgres:17
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastapi_db
-    ports:
-      - "5432:5432"
+    
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fastapi_db"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - app-network
 
-  # Service: pgadmin
   pgadmin:
-    image: dpage/pgadmin4  # Updated to a newer version
-    container_name: pgadmin
+    image: dpage/pgadmin4
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "5050:80"  # Ensure port 5050 is free or change if necessary
+      - "5050:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
@@ -58,9 +55,7 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
   pgadmin_data:
-    driver: local
 
 networks:
   app-network:
